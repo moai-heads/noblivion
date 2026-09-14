@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Noblivion Character Creator</title>
+<meta name="description" content="A slider-driven 3D character creator in the spirit of the Oblivion character generation screen.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='14' fill='%23c8a86a'/></svg>">
+<style>
+:root{
+  --gold:#d8bb7d; --gold-lo:#8d7332; --ink:#e8dcc0; --dim:#a2937a;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0;background:#0b0c0e;color:var(--ink);
+  font-family:Georgia,"Times New Roman",serif;overflow:hidden;overscroll-behavior:none}
+#view{position:fixed;inset:0;display:block;width:100%;height:100%;touch-action:none}
+#vignette{position:fixed;inset:0;pointer-events:none;z-index:2;
+  background:radial-gradient(ellipse at 55% 42%,rgba(0,0,0,0) 38%,rgba(0,0,0,.66) 100%)}
+#hint{position:fixed;right:16px;bottom:12px;z-index:3;font-size:10px;letter-spacing:.22em;
+  text-transform:uppercase;color:#6f6654;pointer-events:none;text-align:right;line-height:1.9}
+#panel{
+  position:fixed;top:0;left:0;height:100%;width:388px;max-width:100%;z-index:10;
+  display:flex;flex-direction:column;
+  background:linear-gradient(180deg,rgba(26,23,19,.95),rgba(12,11,10,.97));
+  border-right:1px solid rgba(216,187,125,.22);
+  box-shadow:10px 0 44px rgba(0,0,0,.65);backdrop-filter:blur(7px);
+}
+header{padding:16px 18px 11px 18px;border-bottom:1px solid rgba(216,187,125,.16);position:relative}
+h1{margin:0;font-size:19px;font-weight:normal;letter-spacing:.3em;text-transform:uppercase;
+  color:var(--gold);text-shadow:0 0 20px rgba(216,187,125,.4)}
+.sub{margin-top:7px;font-size:9.5px;letter-spacing:.44em;text-transform:uppercase;color:#8d8064}
+#tabs{display:flex;flex-wrap:wrap;padding:9px 9px 0 9px;gap:2px}
+#tabs button{flex:1 1 60px;padding:8px 4px;font:inherit;font-size:9.5px;letter-spacing:.13em;
+  text-transform:uppercase;color:#a1947a;background:transparent;cursor:pointer;
+  border:1px solid transparent;border-bottom:1px solid rgba(216,187,125,.2);transition:.15s}
+#tabs button:hover{color:var(--ink);background:rgba(216,187,125,.06)}
+#tabs button.on{color:#1a1712;background:linear-gradient(180deg,#e6cd93,#b99a52);
+  border-color:#f2e0b4;text-shadow:none}
+#controls{flex:1;overflow-y:auto;padding:14px 16px 30px 16px;scrollbar-width:thin;
+  scrollbar-color:#5c5138 transparent}
+#controls::-webkit-scrollbar{width:8px}
+#controls::-webkit-scrollbar-thumb{background:#4a4130;border-radius:4px}
+.sect{margin:20px 0 8px 0;padding-bottom:5px;font-size:9.5px;letter-spacing:.3em;
+  text-transform:uppercase;color:#8d8064;border-bottom:1px solid rgba(216,187,125,.13)}
+.sect:first-child{margin-top:4px}
+.row{display:block;margin:11px 0}
+.lab{display:flex;justify-content:space-between;align-items:baseline;font-size:10.5px;
+  letter-spacing:.13em;text-transform:uppercase;color:#b3a487;margin-bottom:5px}
+.lab b{color:var(--gold);font-weight:normal;font-variant-numeric:tabular-nums}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:16px;
+  background:transparent;cursor:pointer;display:block}
+input[type=range]::-webkit-slider-runnable-track{height:3px;
+  background:linear-gradient(90deg,#2f2a20,#6d5c3b);border:1px solid rgba(216,187,125,.22)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;
+  margin-top:-6.5px;border-radius:50%;
+  background:radial-gradient(circle at 34% 28%,#f6e9c6,#a98b48);
+  border:1px solid #f7ead0;box-shadow:0 0 9px rgba(216,187,125,.55)}
+input[type=range]::-moz-range-track{height:3px;background:#4a4130;border:1px solid rgba(216,187,125,.2)}
+input[type=range]::-moz-range-thumb{width:13px;height:13px;border:1px solid #f7ead0;border-radius:50%;
+  background:radial-gradient(circle at 34% 28%,#f6e9c6,#a98b48)}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin:6px 0 2px}
+.grid.three{grid-template-columns:repeat(3,1fr)}
+.grid button{padding:8px 5px;font:inherit;font-size:10.5px;letter-spacing:.07em;color:#c8ba9c;
+  background:rgba(255,255,255,.028);border:1px solid rgba(216,187,125,.2);cursor:pointer;transition:.13s}
+.grid button:hover{background:rgba(216,187,125,.12);color:#fff0d2}
+.grid button.on{background:linear-gradient(180deg,#e6cd93,#b99a52);color:#1a1712;border-color:#f2e0b4}
+.colrow{display:flex;align-items:center;justify-content:space-between;margin:10px 0}
+.colrow span{font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:#b3a487}
+input[type=color]{width:64px;height:26px;padding:2px;background:#141310;cursor:pointer;
+  border:1px solid rgba(216,187,125,.3)}
+footer{display:flex;gap:6px;padding:11px 12px;border-top:1px solid rgba(216,187,125,.16);
+  background:rgba(0,0,0,.35)}
+footer button{flex:1;padding:10px 4px;font:inherit;font-size:10px;letter-spacing:.14em;
+  text-transform:uppercase;color:#cbbd9d;background:rgba(255,255,255,.03);cursor:pointer;
+  border:1px solid rgba(216,187,125,.24);transition:.14s}
+footer button:hover{background:rgba(216,187,125,.16);color:#fff2d8}
+#burger{display:none}
+@media (max-width:880px){
+  #panel{top:auto;bottom:0;height:56%;width:100%;border-right:none;
+    border-top:1px solid rgba(216,187,125,.28);box-shadow:0 -10px 40px rgba(0,0,0,.7)}
+  #tabs button{flex:1 1 52px;font-size:9px;letter-spacing:.06em;padding:7px 2px}
+  #hint{display:none}
+}
+</style>
+</head>
+<body>
+<canvas id="view"></canvas>
+<div id="vignette"></div>
+<div id="hint">drag to orbit &middot; scroll to zoom<br>sliders shape the face live</div>
+
+<aside id="panel">
+  <header>
+    <h1>Noblivion</h1>
+    <div class="sub">Character Creator</div>
+  </header>
+  <div id="tabs"></div>
+  <div id="controls"></div>
+  <footer>
+    <button id="btnRand">Random</button>
+    <button id="btnReset">Reset</button>
+    <button id="btnSpin">Spin: Off</button>
+    <button id="btnShot">Save</button>
+  </footer>
+</aside>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+/* ============================================================
+   NOBLIVION CHARACTER CREATOR
+   ============================================================ */
+
+const clamp = (v,a,b)=>Math.min(b,Math.max(a,v));
+const sf = v => 0.62 + (v/100)*0.76;          // slider 0..100 -> scale 0.62..1.38
+const BASE = { W:0.80, H:1.00, D:0.90 };      // unscaled head semi-axes
+
+const DEFAULTS = {
+  skinTone:50,
+  faceWidth:50, faceHeight:50, faceDepth:50,
+  jawWidth:50, jawHeight:50, jawDepth:50,
+  cheekWidth:50, cheekHeight:50, cheekDepth:50,
+  chinWidth:50, chinHeight:50, chinDepth:50,
+  browWidth:50, browHeight:50, browDepth:50,
+  noseWidth:50, noseLength:50, noseHeight:50, noseTip:50,
+  mouthWidth:50, mouthHeight:50, lipSize:50,
+  eyeWidth:50, eyeHeight:50, eyeDepth:50, eyeSep:50, eyeTilt:50,
+  earSize:50, earHeight:50, earTilt:50
+};
+const P = Object.assign({}, DEFAULTS, {
+  race:1, gender:0, hairStyle:1,
+  hairColor:'#2b1d12', eyeColor:'#5d7fa4'
+});
+
+const RACES = [
+  { name:'Nord',     skin:0xe8c6a0, hair:'#c8a45c', eye:'#6d92b8',
+    shape:{ faceWidth:56, jawWidth:58, browDepth:58, browWidth:54 } },
+  { name:'Imperial', skin:0xdcb48c, hair:'#3a2a1a', eye:'#6b5a3c',
+    shape:{ faceWidth:50, jawWidth:50, browDepth:50, browWidth:50 } },
+  { name:'Breton',   skin:0xe2be99, hair:'#5b3a22', eye:'#4d7a5a',
+    shape:{ faceWidth:46, jawWidth:44, browDepth:44, browWidth:46, chinWidth:46 } },
+  { name:'Redguard', skin:0x9c6c46, hair:'#1c1512', eye:'#4a3320',
+    shape:{ faceWidth:50, jawWidth:54, browDepth:58, browWidth:52 } },
+  { name:'Dunmer',   skin:0x8b8b98, hair:'#241a26', eye:'#b03a44',
+    shape:{ faceWidth:48, jawWidth:50, cheekDepth:58, browDepth:56 } },
+  { name:'Altmer',   skin:0xe9d78e, hair:'#e6d79a', eye:'#d0a83c',
+    shape:{ faceWidth:42, faceHeight:58, jawWidth:38, eyeTilt:62, noseLength:60 } },
+  { name:'Bosmer',   skin:0xc9a97c, hair:'#6b4a26', eye:'#8a7a30',
+    shape:{ faceWidth:46, jawWidth:42, eyeSep:58, earSize:64, earHeight:58 } },
+  { name:'Orc',      skin:0x7f9463, hair:'#141210', eye:'#c8b24a',
+    shape:{ jawWidth:78, browDepth:76, browWidth:70, faceWidth:62, chinWidth:64 } },
+  { name:'Khajiit',  skin:0xc9a87c, hair:'#a97c3c', eye:'#d9c05a',
+    shape:{ noseWidth:62, noseLength:44, mouthWidth:58, earSize:78, earHeight:70, eyeTilt:60 } },
+  { name:'Argonian', skin:0x6f8c6e, hair:'#2c4432', eye:'#c8402c',
+    shape:{ noseLength:36, noseTip:36, browDepth:66, eyeTilt:58, jawWidth:58, mouthWidth:58 } }
+];
+
+const HAIRSTYLES = ['Bald','Short','Long','Tail','Mohawk','Bun'];
+
+/* ---------------- renderer ---------------- */
+const canvas = document.getElementById('view');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, preserveDrawingBuffer:true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0c0d10);
+scene.fog = new THREE.Fog(0x0c0d10, 7, 17);
+
+const camera = new THREE.PerspectiveCamera(32, window.innerWidth/window.innerHeight, 0.05, 100);
+camera.position.set(0, 0.06, 5.55);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enablePan = false;
+controls.enableDamping = true;
+controls.dampingFactor = 0.075;
+controls.rotateSpeed = 0.75;
+controls.minDistance = 1.7;
+controls.maxDistance = 7.5;
+controls.minPolarAngle = 0.35;
+controls.maxPolarAngle = Math.PI - 0.35;
+controls.target.set(0,0,0);
+
+/* ---------------- lights ---------------- */
+scene.add(new THREE.HemisphereLight(0xcfe0ff, 0x33261a, 0.55));
+const key = new THREE.DirectionalLight(0xfff2dd, 2.5);
+key.position.set(2.6, 3.2, 3.4);
+key.castShadow = true;
+key.shadow.mapSize.set(2048,2048);
+key.shadow.camera.near = 0.5; key.shadow.camera.far = 14;
+key.shadow.camera.left = -3; key.shadow.camera.right = 3;
+key.shadow.camera.top = 3;  key.shadow.camera.bottom = -3;
+key.shadow.bias = -0.0013; key.shadow.radius = 3;
+scene.add(key);
+const fill = new THREE.DirectionalLight(0x9fc0ff, 0.8); fill.position.set(-3.4, 0.9, 2.2); scene.add(fill);
+const rim  = new THREE.DirectionalLight(0xffd9a0, 1.7); rim.position.set(-1.6, 2.4, -3.6); scene.add(rim);
+
+/* soft radial ground for contact shadow */
+(function(){
+  const s = 512, c = document.createElement('canvas'); c.width = c.height = s;
+  const g = c.getContext('2d');
+  const grd = g.createRadialGradient(s/2,s/2,8,s/2,s/2,s/2);
+  grd.addColorStop(0,'#ffffff'); grd.addColorStop(0.42,'#9a9a9a'); grd.addColorStop(1,'#000000');
+  g.fillStyle = grd; g.fillRect(0,0,s,s);
+  const tex = new THREE.CanvasTexture(c);
+  const mat = new THREE.MeshStandardMaterial({ color:0x232833, roughness:1, metalness:0,
+    transparent:true, alphaMap:tex, depthWrite:false });
+  const ground = new THREE.Mesh(new THREE.CircleGeometry(6,72), mat);
+  ground.rotation.x = -Math.PI/2; ground.position.y = -2.45;
+  ground.receiveShadow = true; scene.add(ground);
+})();
+
+/* ---------------- material set ---------------- */
+const skinMat  = new THREE.MeshStandardMaterial({ color:0xdcb493, roughness:0.86, metalness:0.02, side:THREE.DoubleSide });
+const lipMat   = new THREE.MeshStandardMaterial({ color:0xa8605c, roughness:0.5,  metalness:0.0 });
+const lipDark  = new THREE.MeshStandardMaterial({ color:0x341318, roughness:0.85 });
+const hairMat  = new THREE.MeshStandardMaterial({ color:0x2b1d12, roughness:0.68, metalness:0.05, side:THREE.DoubleSide });
+const whiteMat = new THREE.MeshStandardMaterial({ color:0xf3f1ea, roughness:0.26, metalness:0.0 });
+const irisMat  = new THREE.MeshStandardMaterial({ color:0x5d7fa4, roughness:0.16, metalness:0.05 });
+const pupilMat = new THREE.MeshStandardMaterial({ color:0x05060a, roughness:0.14 });
+const lidMat   = new THREE.MeshStandardMaterial({ color:0xc4a184, roughness:0.88, side:THREE.DoubleSide });
+
+/* ---------------- character ---------------- */
+const char = new THREE.Group();
+scene.add(char);
+
+/* HEAD ---------------------------------------------------- */
+const headGeo  = new THREE.SphereGeometry(1, 128, 96);
+const headBase = new Float32Array(headGeo.attributes.position.array);
+const headMesh = new THREE.Mesh(headGeo, skinMat);
+headMesh.name = 'head';
+headMesh.castShadow = true; headMesh.receiveShadow = true;
+char.add(headMesh);
+
+/* NECK ---------------------------------------------------- */
+const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.5, 1.2, 36, 1, true), skinMat);
+neck.position.y = -1.62;
+neck.castShadow = true; neck.receiveShadow = true;
+neck.name = 'neck';
+char.add(neck);
+
+/* FEATURES ------------------------------------------------ */
+function blob(geo, mat, cast){ const m = new THREE.Mesh(geo, mat); m.castShadow = !!cast; return m; }
+
+const F = {};
+
+/* eyes (built around a unit sphere, then scaled by the group) */
+const SCL = new THREE.Vector3(0.158, 0.106, 0.090);   // sclera semi-axes
+
+/* a disc wrapped onto the sclera surface (so it never sinks inside it) */
+function eyeDisc(hx, hy, scale){
+  const g = new THREE.CircleGeometry(1, 56);
+  const p = g.attributes.position;
+  for(let i = 0; i < p.count; i++){
+    const u = p.getX(i), v = p.getY(i);
+    const x = u*hx, y = v*hy;
+    const sx = SCL.x*scale, sy = SCL.y*scale, sz = SCL.z*scale;
+    const q = 1 - (x/sx)*(x/sx) - (y/sy)*(y/sy);
+    p.setXYZ(i, x, y, sz*Math.sqrt(Math.max(q, 0.0001)));
+  }
+  p.needsUpdate = true;
+  g.computeVertexNormals();
+  return g;
+}
+
+function makeEye(){
+  const g = new THREE.Group();
+  const sclera = blob(new THREE.SphereGeometry(1,36,26), whiteMat);
+  sclera.scale.copy(SCL); sclera.name = 'sclera';
+  g.add(sclera);
+
+  const iris = blob(eyeDisc(0.046, 0.045, 1.028), irisMat);
+  iris.name = 'iris'; g.add(iris);
+
+  const pupil = blob(eyeDisc(0.021, 0.020, 1.058), pupilMat);
+  pupil.name = 'pupil'; g.add(pupil);
+
+  const lidScale = new THREE.Vector3(0.166,0.117,0.098);
+  const lidTop = blob(new THREE.SphereGeometry(1,40,22,0,Math.PI*2,0,Math.PI*0.43), lidMat, true);
+  lidTop.scale.copy(lidScale); lidTop.name = 'lidTop'; g.add(lidTop);
+  const lidBot = blob(new THREE.SphereGeometry(1,40,22,0,Math.PI*2,Math.PI*0.575,Math.PI*0.425), lidMat, true);
+  lidBot.scale.copy(lidScale); lidBot.name = 'lidBot'; g.add(lidBot);
+  return g;
+}
+F.eyeL = makeEye(); F.eyeR = makeEye();
+F.eyeL.name='eyeL'; F.eyeR.name='eyeR';
+char.add(F.eyeL, F.eyeR);
+
+/* brows - rebuilt as patches on the skull surface (cheap: ~64 verts) */
+F.browL = new THREE.Mesh(new THREE.BufferGeometry(), hairMat);
+F.browR = new THREE.Mesh(new THREE.BufferGeometry(), hairMat);
+F.browL.castShadow = F.browR.castShadow = true;
+char.add(F.browL, F.browR);
+
+/* nose (placed every update, parts live in head space) */
+const NAME = (m,n)=>{ m.name=n; return m; };
+F.noseBridge = blob(new THREE.SphereGeometry(1,24,20), skinMat, true); char.add(F.noseBridge);
+F.noseTip    = blob(new THREE.SphereGeometry(1,24,20), skinMat, true); char.add(F.noseTip);
+F.nostrilL   = blob(new THREE.SphereGeometry(1,16,12), skinMat, true); char.add(F.nostrilL);
+F.nostrilR   = blob(new THREE.SphereGeometry(1,16,12), skinMat, true); char.add(F.nostrilR);
+
+/* mouth */
+F.lipUp    = blob(new THREE.SphereGeometry(1,32,20), lipMat,  true); char.add(F.lipUp);
+F.lipLo    = blob(new THREE.SphereGeometry(1,32,20), lipMat,  true); char.add(F.lipLo);
+F.mouthGap = blob(new THREE.SphereGeometry(1,24,16), lipDark);       char.add(F.mouthGap);
+
+/* ears */
+function makeEar(side){
+  const g = new THREE.Group();
+  const outer = blob(new THREE.SphereGeometry(1,28,22), skinMat, true);
+  outer.scale.set(0.050,0.080,0.122);
+  g.add(outer);
+  const inner = blob(new THREE.SphereGeometry(1,20,16), skinMat);
+  inner.scale.set(0.020,0.044,0.074); inner.position.x = 0.030*side;
+  g.add(inner);
+  return g;
+}
+F.earL = makeEar(-1); F.earR = makeEar(1);
+F.earL.name='earL'; F.earR.name='earR';
+F.earL.children[0].name='earL_c'; F.earR.children[0].name='earR_c';
+char.add(F.earL, F.earR);
+
+/* names for debugging / probing */
+for(const k in F){ if(F[k] && F[k].isObject3D) F[k].name = k; }
+
+/* hair */
+let hairGroup = new THREE.Group();
+char.add(hairGroup);
+function buildHair(style){
+  char.remove(hairGroup);
+  const g = new THREE.Group();
+  const add = (geo)=>{ const m = blob(geo, hairMat, true); m.name='hair'; g.add(m); return m; };
+  const cap = (tl, sc, y=0)=>{
+    const m = add(new THREE.SphereGeometry(1,48,28,0,Math.PI*2,0,tl));
+    m.scale.setScalar(sc); m.position.y = y; return m;
+  };
+  const back = (tl)=>{
+    const m = add(new THREE.SphereGeometry(1,52,28,Math.PI*0.84,Math.PI*1.32,0,tl));
+    return m;
+  };
+  if(style === 1){ cap(Math.PI*0.34, 1.03); back(Math.PI*0.55); }
+  else if(style === 2){
+    cap(Math.PI*0.36, 1.035); back(Math.PI*0.80);
+    const m = add(new THREE.SphereGeometry(1,40,28));
+    m.scale.set(0.86,0.82,0.56); m.position.set(0,-0.62,-0.30);
+    const n = add(new THREE.SphereGeometry(1,32,20));
+    n.scale.set(0.90,0.30,0.62); n.position.set(0,-1.28,-0.18);
+  }
+  else if(style === 3){
+    cap(Math.PI*0.40, 1.035); back(Math.PI*0.62);
+    const m = add(new THREE.SphereGeometry(1,32,24));
+    m.scale.set(0.20,0.58,0.20); m.position.set(0,-0.52,-0.94); m.rotation.x = 0.22;
+    const b = add(new THREE.SphereGeometry(1,24,18));
+    b.scale.set(0.075,0.075,0.075); b.position.set(0,-0.06,-1.02);
+  }
+  else if(style === 4){
+    const m = add(new THREE.SphereGeometry(1,32,32,0,Math.PI*2,0,Math.PI*0.52));
+    m.scale.set(0.135,1.07,1.02);
+  }
+  else if(style === 5){
+    cap(Math.PI*0.38, 1.035); back(Math.PI*0.60);
+    const m = add(new THREE.SphereGeometry(1,32,24));
+    m.scale.setScalar(0.27); m.position.set(0,0.40,-0.88);
+  }
+  hairGroup = g;
+  char.add(hairGroup);
+  applyHairScale();
+}
+function applyHairScale(){
+  const W = BASE.W*sf(P.faceWidth), H = BASE.H*sf(P.faceHeight), D = BASE.D*sf(P.faceDepth);
+  hairGroup.scale.set(W*1.045, H*1.045, D*1.045);
+}
+
+/* ---------------- deformation ---------------- */
+const gauss = (x,y,z,cx,cy,cz,s)=>{
+  const dx=x-cx, dy=y-cy, dz=z-cz;
+  return Math.exp(-(dx*dx+dy*dy+dz*dz)/(2*s*s));
+};
+
+function deformHead(){
+  const W = BASE.W*sf(P.faceWidth), H = BASE.H*sf(P.faceHeight), D = BASE.D*sf(P.faceDepth);
+  const jawW=sf(P.jawWidth), jawH=sf(P.jawHeight), jawD=sf(P.jawDepth);
+  const ckW=sf(P.cheekWidth), ckH=sf(P.cheekHeight), ckD=sf(P.cheekDepth);
+  const chW=sf(P.chinWidth),  chH=sf(P.chinHeight),  chD=sf(P.chinDepth);
+  const brW=sf(P.browWidth),  brH=sf(P.browHeight),  brD=sf(P.browDepth);
+  const arr = headGeo.attributes.position.array;
+
+  for(let i=0;i<arr.length;i+=3){
+    const x = headBase[i], y = headBase[i+1], z = headBase[i+2];
+    const ax = Math.abs(x);
+    let px = x*W, py = y*H, pz = z*D;
+
+    /* widen the front of the face so the eyes/brows seat properly */
+    const fz = Math.max(0, z);
+    px *= 1 + 0.26*fz*fz;
+
+    /* jaw */
+    const jawM = gauss(ax,y,z, 0.00,-0.66,0.12, 0.46);
+    px += (jawW-1)*jawM*x*0.62;
+    pz += (jawD-1)*jawM*Math.max(0,z)*0.42;
+    py += (jawH-1)*jawM*0.26;
+
+    /* cheekbones */
+    const ckM = gauss(ax,y,z, 0.60,-0.08,0.28, 0.38);
+    py += (ckH-1)*ckM*0.26;
+    px += (ckW-1)*ckM*x*0.58;
+    pz += (ckD-1)*ckM*0.26;
+
+    /* chin */
+    const chM = gauss(ax,y,z, 0.00,-0.82,0.52, 0.30);
+    px += (chW-1)*chM*x*0.55;
+    py += (chH-1)*chM*0.30;
+    pz += (chD-1)*chM*0.26;
+
+    /* brow ridge */
+    const brM = gauss(ax,y,z, 0.36,0.54,0.52, 0.30);
+    py += (brH-1)*brM*0.17;
+    px += (brW-1)*brM*x*0.44;
+    pz += (brD-1)*brM*0.24;
+
+    arr[i]=px; arr[i+1]=py; arr[i+2]=pz;
+  }
+  headGeo.attributes.position.needsUpdate = true;
+  headGeo.computeVertexNormals();
+  headGeo.computeBoundingSphere();
+}
+
+/* ---------------- placement ---------------- */
+function surfZ(x,y,W,H,D){
+  const t = 1 - (x/W)*(x/W) - (y/H)*(y/H);
+  return t > 0 ? D*Math.sqrt(t) : 0;
+}
+
+/* true z of the deformed skull at (x,y) - inverts the face-flattening term */
+function headZ(x, y, W, H, D){
+  const yu = y/H;
+  const rest = Math.max(1e-6, 1 - yu*yu);
+  let zu = Math.sqrt(Math.max(0.0001, rest - (x/W)*(x/W)));
+  for(let i=0;i<10;i++){
+    const xr = Math.sqrt(Math.max(1e-6, rest - zu*zu));
+    const px = W*xr*(1 + 0.26*zu*zu);
+    const dpx = W*( (-zu/xr)*(1 + 0.26*zu*zu) + xr*0.52*zu );
+    if(Math.abs(dpx) < 1e-9) break;
+    let nz = zu - (px - x)/dpx;
+    nz = Math.max(0, Math.min(0.999, nz));
+    if(Math.abs(nz-zu) < 1e-7){ zu = nz; break; }
+    zu = nz;
+  }
+  return zu*D;
+}
+
+/* a lens-shaped patch lying on the skull surface, optionally bulging outward */
+function capOnHead(cx, cy, hx, hy, zOff, bulge, d, seg){
+  const g = new THREE.CircleGeometry(1, seg || 56);
+  const p = g.attributes.position;
+  for(let i=0;i<p.count;i++){
+    const u = p.getX(i), v = p.getY(i);
+    const x = cx + u*hx, y = cy + v*hy;
+    const r = Math.min(1, Math.sqrt(u*u + v*v));
+    p.setXYZ(i, x, y, headZ(x, y, d.W, d.H, d.D) + zOff + bulge*Math.sqrt(Math.max(0, 1 - r*r)));
+  }
+  p.needsUpdate = true;
+  g.computeVertexNormals();
+  return g;
+}
+
+function placeFeatures(){
+  const W = BASE.W*sf(P.faceWidth), H = BASE.H*sf(P.faceHeight), D = BASE.D*sf(P.faceDepth);
+  const S = (x,y)=>surfZ(x,y,W,H,D);
+
+  /* ---- eyes ---- */
+  const eW=sf(P.eyeWidth), eH=sf(P.eyeHeight), eD=sf(P.eyeDepth), eS=sf(P.eyeSep), eT=sf(P.eyeTilt);
+  const eyeX = 0.345*W*eS;
+  const eyeY = 0.020*H + (eH-1)*0.035;
+  const eyeZ = S(eyeX,eyeY) - 0.052 + (eD-1)*0.055;
+  const tilt = (eT-1)*0.55;
+  const yaw  = 0.22;
+  F.eyeL.position.set(-eyeX, eyeY, eyeZ);
+  F.eyeR.position.set( eyeX, eyeY, eyeZ);
+  F.eyeL.rotation.set(0,-yaw,-tilt);
+  F.eyeR.rotation.set(0, yaw, tilt);
+  F.eyeL.scale.set(eW,eH,eD);
+  F.eyeR.scale.set(eW,eH,eD);
+
+  /* ---- brows ---- */
+  const bW = sf(P.browWidth), bH = sf(P.browHeight), bD = sf(P.browDepth);
+  const browX = eyeX*0.99, browY = eyeY + 0.132*H + (bH-1)*0.05;
+  const bg = { W, H, D };
+  const bhx = 0.118*bW, bhy = 0.023, bulge = 0.024 + (bD-1)*0.05;
+  F.browL.geometry.dispose();
+  F.browL.geometry = capOnHead(-browX, browY, bhx, bhy, -0.002, bulge, bg);
+  F.browR.geometry.dispose();
+  F.browR.geometry = capOnHead( browX, browY, bhx, bhy, -0.002, bulge, bg);
+
+  /* ---- nose ---- */
+  const nW=sf(P.noseWidth), nL=sf(P.noseLength), nH=sf(P.noseHeight), nT=sf(P.noseTip);
+  const nShift  = (nH-1)*0.11;
+  const bridgeY = 0.035*H + nShift;
+  const tipY    = -0.29*H + nShift + (nL-1)*0.035 - (nT-1)*0.045;
+  const bz = S(0,bridgeY) - 0.035;
+  const tz = S(0,tipY)    + (nL-1)*0.040 - 0.015;
+  F.noseBridge.position.set(0, bridgeY, bz);
+  F.noseBridge.scale.set(0.078*nW, 0.205, 0.060*nL);
+  F.noseBridge.rotation.x = -0.13 - (nL-1)*0.16;
+  F.noseTip.position.set(0, tipY, tz);
+  F.noseTip.scale.set(0.096*nW, 0.068, 0.058*nL);
+  const wing = 0.074*nW;
+  F.nostrilL.position.set(-wing, tipY-0.026, tz-0.022);
+  F.nostrilR.position.set( wing, tipY-0.026, tz-0.022);
+  F.nostrilL.scale.set(0.046,0.038,0.050);
+  F.nostrilR.scale.set(0.046,0.038,0.050);
+
+  /* ---- mouth ---- */
+  const mW=sf(P.mouthWidth), mH=sf(P.mouthHeight), lS=sf(P.lipSize);
+  const mouthY = -0.655*H + (mH-1)*0.075;
+  const yUp = mouthY+0.032 + (lS-1)*0.006;
+  const yLo = mouthY-0.040 - (lS-1)*0.010;
+  F.lipUp.position.set(0, yUp, S(0,yUp) - 0.010);
+  F.lipUp.scale.set(0.118*mW, 0.028*lS, 0.040);
+  F.lipLo.position.set(0, yLo, S(0,yLo) - 0.014);
+  F.lipLo.scale.set(0.108*mW, 0.034*lS, 0.045);
+  F.mouthGap.position.set(0, mouthY, S(0,mouthY) - 0.030);
+  F.mouthGap.scale.set(0.106*mW, 0.026*mH, 0.032);
+
+  /* ---- ears ---- */
+  const erS=sf(P.earSize), erH=sf(P.earHeight), erT=sf(P.earTilt);
+  const earY = -0.115*H + (erH-1)*0.13;
+  const earX = W*1.020;
+  F.earL.position.set(-earX, earY, -0.06);
+  F.earR.position.set( earX, earY, -0.06);
+  F.earL.scale.set(1, erS, erS);
+  F.earR.scale.set(1, erS, erS);
+  const et = (erT-1)*0.5;
+  F.earL.rotation.set(0, -0.34, -0.12 - et);
+  F.earR.rotation.set(0,  0.34,  0.12 + et);
+
+  /* ---- neck + hair ---- */
+  neck.scale.set(W/BASE.W, 1, W/BASE.W);
+  applyHairScale();
+}
+
+/* ---------------- colours ---------------- */
+function applyColors(){
+  const r = RACES[P.race] || RACES[0];
+  const base  = new THREE.Color(r.skin);
+  const dark  = base.clone().multiplyScalar(0.40);
+  const light = base.clone().lerp(new THREE.Color(0xffffff), 0.45);
+  const c = dark.clone().lerp(light, clamp(P.skinTone/100, 0, 1));
+  skinMat.color.copy(c);
+  lidMat.color.copy(c).multiplyScalar(0.80);
+  lipMat.color.copy(c.clone().lerp(new THREE.Color(0x8e3f4a), 0.55));
+  hairMat.color.set(P.hairColor);
+  irisMat.color.set(P.eyeColor);
+}
+
+/* ---------------- master apply ---------------- */
+function apply(){
+  deformHead();
+  placeFeatures();
+  applyColors();
+}
+
+/* ============================================================
+   UI
+   ============================================================ */
+const TABS = ['Race','Face','Nose','Mouth','Eyes','Ears','Hair'];
+const tabsEl = document.getElementById('tabs');
+const controlsEl = document.getElementById('controls');
+let activeTab = 0;
+
+TABS.forEach((t,i)=>{
+  const b = document.createElement('button');
+  b.textContent = t;
+  b.addEventListener('click', ()=>{ activeTab = i; renderTab(); });
+  tabsEl.appendChild(b);
+});
+
+function setActiveTabUI(){
+  [...tabsEl.children].forEach((b,i)=>b.classList.toggle('on', i === activeTab));
+}
+
+function el(tag, cls, html){
+  const e = document.createElement(tag);
+  if(cls) e.className = cls;
+  if(html != null) e.innerHTML = html;
+  return e;
+}
+
+function sliderRow(key, label){
+  const row = el('label','row',
+    '<span class="lab"><span>'+label+'</span><b>'+Math.round(P[key])+'</b></span>');
+  const inp = document.createElement('input');
+  inp.type='range'; inp.min=0; inp.max=100; inp.step=1; inp.value=P[key];
+  inp.setAttribute('aria-label', label);
+  const out = row.querySelector('b');
+  const onInput = ()=>{ P[key] = +inp.value; out.textContent = Math.round(P[key]); apply(); };
+  inp.addEventListener('input', onInput);
+  inp.addEventListener('change', onInput);
+  row.appendChild(inp);
+  return row;
+}
+
+function section(title){ return el('div','sect',title); }
+
+function buttonGrid(items, isOn, onPick, cls){
+  const g = el('div','grid' + (cls ? ' '+cls : ''));
+  items.forEach((it, i)=>{
+    const b = document.createElement('button');
+    b.textContent = typeof it === 'string' ? it : it.name;
+    if(isOn(it, i)) b.classList.add('on');
+    b.addEventListener('click', ()=>{
+      onPick(it, i);
+      renderTab();
+    });
+    g.appendChild(b);
+  });
+  return g;
+}
+
+function colorRow(key, label){
+  const row = el('div','colrow','<span>'+label+'</span>');
+  const inp = document.createElement('input');
+  inp.type='color'; inp.value = P[key];
+  inp.addEventListener('input', ()=>{ P[key]=inp.value; apply(); });
+  row.appendChild(inp);
+  return row;
+}
+
+const SLIDERS = {
+  Face: [
+    ['faceWidth','Face Width'],['faceHeight','Face Height'],['faceDepth','Face Depth'],
+    ['jawWidth','Jaw Width'],['jawHeight','Jaw Height'],['jawDepth','Jaw Depth'],
+    ['cheekWidth','Cheekbone Width'],['cheekHeight','Cheekbone Height'],['cheekDepth','Cheekbone Depth'],
+    ['chinWidth','Chin Width'],['chinHeight','Chin Height'],['chinDepth','Chin Depth'],
+    ['browWidth','Brow Width'],['browHeight','Brow Height'],['browDepth','Brow Depth']
+  ],
+  Nose:  [['noseWidth','Nose Width'],['noseLength','Nose Length'],['noseHeight','Nose Height'],['noseTip','Nose Tip']],
+  Mouth: [['mouthWidth','Mouth Width'],['mouthHeight','Mouth Height'],['lipSize','Lip Size']],
+  Eyes:  [['eyeWidth','Eye Width'],['eyeHeight','Eye Height'],['eyeDepth','Eye Depth'],
+          ['eyeSep','Eye Separation'],['eyeTilt','Eye Tilt']],
+  Ears:  [['earSize','Ear Size'],['earHeight','Ear Height'],['earTilt','Ear Tilt']]
+};
+
+function renderTab(){
+  setActiveTabUI();
+  controlsEl.innerHTML = '';
+  controlsEl.scrollTop = 0;
+  const name = TABS[activeTab];
+
+  if(name === 'Race'){
+    controlsEl.appendChild(section('Race'));
+    controlsEl.appendChild(buttonGrid(RACES,
+      (r,i)=> i === P.race,
+      (r,i)=>{ P.race = i; applyRaceShape(); apply(); }));
+    controlsEl.appendChild(section('Gender'));
+    controlsEl.appendChild(buttonGrid(['Masculine','Feminine'],
+      (it,i)=> i === P.gender,
+      (it,i)=>{ P.gender = i; applyGenderShape(); apply(); }));
+    controlsEl.appendChild(section('Complexion'));
+    controlsEl.appendChild(sliderRow('skinTone','Skin Tone'));
+    controlsEl.appendChild(colorRow('eyeColor','Eye Colour'));
+    controlsEl.appendChild(colorRow('hairColor','Hair Colour'));
+  }
+  else if(name === 'Hair'){
+    controlsEl.appendChild(section('Style'));
+    controlsEl.appendChild(buttonGrid(HAIRSTYLES,
+      (it,i)=> i === P.hairStyle,
+      (it,i)=>{ P.hairStyle = i; buildHair(i); }));
+    controlsEl.appendChild(section('Tint'));
+    controlsEl.appendChild(colorRow('hairColor','Hair Colour'));
+    controlsEl.appendChild(section('Brows'));
+    controlsEl.appendChild(sliderRow('browWidth','Brow Width'));
+    controlsEl.appendChild(sliderRow('browHeight','Brow Height'));
+    controlsEl.appendChild(sliderRow('browDepth','Brow Depth'));
+  }
+  else {
+    controlsEl.appendChild(section(name));
+    (SLIDERS[name] || []).forEach(([k,l])=> controlsEl.appendChild(sliderRow(k,l)));
+  }
+}
+
+/* race / gender presets */
+function applyRaceShape(){
+  const s = RACES[P.race].shape || {};
+  for(const k in DEFAULTS){ if(k === 'skinTone') continue; P[k] = DEFAULTS[k]; }
+  for(const k in s){ if(k in P) P[k] = s[k]; }
+  if(RACES[P.race].hair) P.hairColor = RACES[P.race].hair;
+  if(RACES[P.race].eye)  P.eyeColor  = RACES[P.race].eye;
+}
+function applyGenderShape(){
+  if(P.gender === 1){
+    P.jawWidth = clamp(P.jawWidth-8, 0, 100);
+    P.browDepth = clamp(P.browDepth-8, 0, 100);
+    P.chinWidth = clamp(P.chinWidth-6, 0, 100);
+    P.lipSize = clamp(P.lipSize+10, 0, 100);
+    P.eyeWidth = clamp(P.eyeWidth+6, 0, 100);
+    P.faceHeight = clamp(P.faceHeight-4, 0, 100);
+  } else {
+    P.jawWidth = clamp(P.jawWidth+8, 0, 100);
+    P.browDepth = clamp(P.browDepth+8, 0, 100);
+    P.chinWidth = clamp(P.chinWidth+6, 0, 100);
+    P.lipSize = clamp(P.lipSize-10, 0, 100);
+    P.eyeWidth = clamp(P.eyeWidth-6, 0, 100);
+    P.faceHeight = clamp(P.faceHeight+4, 0, 100);
+  }
+}
+
+/* footer */
+document.getElementById('btnRand').addEventListener('click', ()=>{
+  for(const k in DEFAULTS){
+    if(k === 'skinTone') continue;
+    P[k] = Math.round(40 + Math.random()*32);
+  }
+  P.skinTone = Math.round(15 + Math.random()*75);
+  P.hairStyle = Math.floor(Math.random()*HAIRSTYLES.length);
+  P.hairColor = '#' + new THREE.Color().setHSL(Math.random(), 0.35+Math.random()*0.3, 0.12+Math.random()*0.35).getHexString();
+  P.eyeColor  = '#' + new THREE.Color().setHSL(Math.random(), 0.3+Math.random()*0.5, 0.3+Math.random()*0.3).getHexString();
+  buildHair(P.hairStyle);
+  apply(); renderTab();
+});
+
+document.getElementById('btnReset').addEventListener('click', ()=>{
+  for(const k in DEFAULTS) P[k] = DEFAULTS[k];
+  P.race = 1; P.gender = 0; P.hairStyle = 1;
+  P.hairColor = '#2b1d12'; P.eyeColor = '#5d7fa4';
+  buildHair(P.hairStyle);
+  apply(); renderTab();
+});
+
+let spin = false;
+const spinBtn = document.getElementById('btnSpin');
+spinBtn.addEventListener('click', ()=>{
+  spin = !spin;
+  spinBtn.textContent = 'Spin: ' + (spin ? 'On' : 'Off');
+  controls.autoRotate = spin;
+  controls.autoRotateSpeed = 0.9;
+});
+
+document.getElementById('btnShot').addEventListener('click', ()=>{
+  renderer.render(scene, camera);
+  const a = document.createElement('a');
+  a.download = 'noblivion-character.png';
+  a.href = renderer.domElement.toDataURL('image/png');
+  a.click();
+});
+
+/* ---------------- layout / resize ---------------- */
+function layout(){
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const wide = vw > 880;
+  const panelW = wide ? Math.min(388, vw) : 0;
+  const panelH = wide ? 0 : Math.round(vh * 0.56);
+  camera.setViewOffset(vw, vh, -panelW/2, panelH/2, vw, vh);
+  camera.aspect = vw / vh;
+  camera.updateProjectionMatrix();
+  renderer.setSize(vw, vh);
+}
+window.addEventListener('resize', layout);
+window.addEventListener('orientationchange', ()=>setTimeout(layout, 250));
+
+/* ---------------- boot ---------------- */
+buildHair(P.hairStyle);
+apply();
+renderTab();
+layout();
+
+let firstFrame = true;
+renderer.setAnimationLoop(()=>{
+  controls.update();
+  renderer.render(scene, camera);
+  if(firstFrame){ firstFrame = false; document.body.dataset.ready = '1'; }
+});
+</script>
+</body>
+</html>
