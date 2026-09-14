@@ -1,7 +1,7 @@
 # Noblivion Character Creator
 
-A slider-driven 3D character creator in the spirit of the **Oblivion** character
-generation screen — built as a single, dependency-light HTML page.
+A slider-driven 3D character creator in the spirit of classic RPG character
+generation screens — built as a single, dependency-light HTML page.
 
 **Live:** https://moai-heads.github.io/noblivion/
 
@@ -18,7 +18,7 @@ Sliders follow the Oblivion layout:
 
 | Tab | Controls |
 |---|---|
-| Race | 10 races with shape + colour presets, gender, skin tone, eye/hair colour |
+| Lineage | 10 generic lineage presets with shape + colour palettes, gender, skin tone, eye/hair colour |
 | Face | face W/H/D, jaw W/H/D, cheekbone W/H/D, chin W/H/D, brow W/H/D |
 | Nose | width, length, height, tip |
 | Mouth | width, height, lip size |
@@ -35,7 +35,16 @@ portrait). Drag to orbit, scroll to zoom. Works on touch.
 - ~12.5k vertex skull, deformed on the CPU per slider event
 - Eyes are spherical caps with lid shells; iris/pupil are discs projected onto
   the sclera ellipsoid so they never sink inside it
+- Every feature is anchored by sampling a height field rasterised from the
+  *deformed* vertices, not from an analytic ellipsoid — so nose, lips, brows and
+  eyes track the surface exactly as the sliders move
 - No build step. No bundler. One file.
+
+## No third-party content
+
+The lineage palettes and names are generic (Frostkin, Lowlander, Hillfolk,
+Sunlander, Ashen, Tallfolk, Woodkin, Ironskin, Catfolk, Scaleback). Nothing here
+is derived from, or named after, any existing game's setting.
 
 ## Run locally
 

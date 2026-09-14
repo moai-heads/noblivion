@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Noblivion Character Creator</title>
-<meta name="description" content="A slider-driven 3D character creator in the spirit of the Oblivion character generation screen.">
+<meta name="description" content="A slider-driven 3D character creator in the spirit of classic RPG character generation screens. Every slider deforms a live skull.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='14' fill='%23c8a86a'/></svg>">
 <style>
 :root{
@@ -118,6 +118,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 /* ============================================================
    NOBLIVION CHARACTER CREATOR
+  lineage presets, no trademarks
    ============================================================ */
 
 const clamp = (v,a,b)=>Math.min(b,Math.max(a,v));
@@ -141,29 +142,28 @@ const P = Object.assign({}, DEFAULTS, {
   hairColor:'#2b1d12', eyeColor:'#5d7fa4'
 });
 
-const RACES = [
-  { name:'Nord',     skin:0xe8c6a0, hair:'#c8a45c', eye:'#6d92b8',
+const LINEAGES = [
+  { name:'Frostkin',  skin:0xe8c6a0, hair:'#c8a45c', eye:'#6d92b8',
     shape:{ faceWidth:56, jawWidth:58, browDepth:58, browWidth:54 } },
-  { name:'Imperial', skin:0xdcb48c, hair:'#3a2a1a', eye:'#6b5a3c',
+  { name:'Lowlander', skin:0xdcb48c, hair:'#3a2a1a', eye:'#6b5a3c',
     shape:{ faceWidth:50, jawWidth:50, browDepth:50, browWidth:50 } },
-  { name:'Breton',   skin:0xe2be99, hair:'#5b3a22', eye:'#4d7a5a',
+  { name:'Hillfolk',  skin:0xe2be99, hair:'#5b3a22', eye:'#4d7a5a',
     shape:{ faceWidth:46, jawWidth:44, browDepth:44, browWidth:46, chinWidth:46 } },
-  { name:'Redguard', skin:0x9c6c46, hair:'#1c1512', eye:'#4a3320',
+  { name:'Sunlander', skin:0x9c6c46, hair:'#1c1512', eye:'#4a3320',
     shape:{ faceWidth:50, jawWidth:54, browDepth:58, browWidth:52 } },
-  { name:'Dunmer',   skin:0x8b8b98, hair:'#241a26', eye:'#b03a44',
+  { name:'Ashen',     skin:0x8b8b98, hair:'#241a26', eye:'#b03a44',
     shape:{ faceWidth:48, jawWidth:50, cheekDepth:58, browDepth:56 } },
-  { name:'Altmer',   skin:0xe9d78e, hair:'#e6d79a', eye:'#d0a83c',
+  { name:'Tallfolk',  skin:0xe9d78e, hair:'#e6d79a', eye:'#d0a83c',
     shape:{ faceWidth:42, faceHeight:58, jawWidth:38, eyeTilt:62, noseLength:60 } },
-  { name:'Bosmer',   skin:0xc9a97c, hair:'#6b4a26', eye:'#8a7a30',
+  { name:'Woodkin',   skin:0xc9a97c, hair:'#6b4a26', eye:'#8a7a30',
     shape:{ faceWidth:46, jawWidth:42, eyeSep:58, earSize:64, earHeight:58 } },
-  { name:'Orc',      skin:0x7f9463, hair:'#141210', eye:'#c8b24a',
+  { name:'Ironskin',  skin:0x7f9463, hair:'#141210', eye:'#c8b24a',
     shape:{ jawWidth:78, browDepth:76, browWidth:70, faceWidth:62, chinWidth:64 } },
-  { name:'Khajiit',  skin:0xc9a87c, hair:'#a97c3c', eye:'#d9c05a',
+  { name:'Catfolk',   skin:0xc9a87c, hair:'#a97c3c', eye:'#d9c05a',
     shape:{ noseWidth:62, noseLength:44, mouthWidth:58, earSize:78, earHeight:70, eyeTilt:60 } },
-  { name:'Argonian', skin:0x6f8c6e, hair:'#2c4432', eye:'#c8402c',
+  { name:'Scaleback', skin:0x6f8c6e, hair:'#2c4432', eye:'#c8402c',
     shape:{ noseLength:36, noseTip:36, browDepth:66, eyeTilt:58, jawWidth:58, mouthWidth:58 } }
 ];
-
 const HAIRSTYLES = ['Bald','Short','Long','Tail','Mohawk','Bun'];
 
 /* ---------------- renderer ---------------- */
@@ -436,41 +436,72 @@ function deformHead(){
   headGeo.attributes.position.needsUpdate = true;
   headGeo.computeVertexNormals();
   headGeo.computeBoundingSphere();
+  buildFrontField();
 }
 
 /* ---------------- placement ---------------- */
-function surfZ(x,y,W,H,D){
-  const t = 1 - (x/W)*(x/W) - (y/H)*(y/H);
-  return t > 0 ? D*Math.sqrt(t) : 0;
+/* ---- exact front-surface height, sampled from the deformed mesh ----
+   The analytic ellipsoid is wrong once the gaussian regions bite (and the
+   face-flattening term isn't invertible past the cheeks), so features used to
+   float. Instead we rasterise the real deformed vertices into a height field. */
+let frontField = null;
+
+function buildFrontField(){
+  const arr = headGeo.attributes.position.array;
+  let minx = 1e9, maxx = -1e9, miny = 1e9, maxy = -1e9;
+  for(let i = 0; i < arr.length; i += 3){
+    if(arr[i+2] < 0.15) continue;                       /* front cap only */
+    if(arr[i]   < minx) minx = arr[i];
+    if(arr[i]   > maxx) maxx = arr[i];
+    if(arr[i+1] < miny) miny = arr[i+1];
+    if(arr[i+1] > maxy) maxy = arr[i+1];
+  }
+  const N = 96;
+  const dx = (maxx - minx) / (N - 1), dy = (maxy - miny) / (N - 1);
+  const z = new Float32Array(N*N).fill(-1e9);
+  for(let i = 0; i < arr.length; i += 3){
+    const px = arr[i], py = arr[i+1], pz = arr[i+2];
+    if(pz < 0.15) continue;
+    const gx = Math.round((px - minx)/dx), gy = Math.round((py - miny)/dy);
+    if(gx < 0 || gy < 0 || gx >= N || gy >= N) continue;
+    const k = gy*N + gx;
+    if(pz > z[k]) z[k] = pz;                            /* outermost wins */
+  }
+  frontField = { N, x0:minx, y0:miny, dx, dy, z };
 }
 
-/* true z of the deformed skull at (x,y) - inverts the face-flattening term */
-function headZ(x, y, W, H, D){
-  const yu = y/H;
-  const rest = Math.max(1e-6, 1 - yu*yu);
-  let zu = Math.sqrt(Math.max(0.0001, rest - (x/W)*(x/W)));
-  for(let i=0;i<10;i++){
-    const xr = Math.sqrt(Math.max(1e-6, rest - zu*zu));
-    const px = W*xr*(1 + 0.26*zu*zu);
-    const dpx = W*( (-zu/xr)*(1 + 0.26*zu*zu) + xr*0.52*zu );
-    if(Math.abs(dpx) < 1e-9) break;
-    let nz = zu - (px - x)/dpx;
-    nz = Math.max(0, Math.min(0.999, nz));
-    if(Math.abs(nz-zu) < 1e-7){ zu = nz; break; }
-    zu = nz;
+/* distance-weighted sample of the height field around (x,y) */
+function surfaceZ(x, y){
+  const g = frontField;
+  if(!g) return 0;
+  const fx = (x - g.x0)/g.dx, fy = (y - g.y0)/g.dy;
+  const ix = Math.floor(fx), iy = Math.floor(fy);
+  let sum = 0, wsum = 0;
+  for(let oy = -2; oy <= 2; oy++){
+    const cy = iy + oy;
+    if(cy < 0 || cy >= g.N) continue;
+    for(let ox = -2; ox <= 2; ox++){
+      const cx = ix + ox;
+      if(cx < 0 || cx >= g.N) continue;
+      const zz = g.z[cy*g.N + cx];
+      if(zz < -1e8) continue;
+      const ax = cx - fx, ay = cy - fy;
+      const w = 1/(0.02 + ax*ax + ay*ay);
+      sum += zz*w; wsum += w;
+    }
   }
-  return zu*D;
+  return wsum > 0 ? sum/wsum : 0;
 }
 
 /* a lens-shaped patch lying on the skull surface, optionally bulging outward */
-function capOnHead(cx, cy, hx, hy, zOff, bulge, d, seg){
+function capOnHead(cx, cy, hx, hy, zOff, bulge, seg){
   const g = new THREE.CircleGeometry(1, seg || 56);
   const p = g.attributes.position;
   for(let i=0;i<p.count;i++){
     const u = p.getX(i), v = p.getY(i);
     const x = cx + u*hx, y = cy + v*hy;
     const r = Math.min(1, Math.sqrt(u*u + v*v));
-    p.setXYZ(i, x, y, headZ(x, y, d.W, d.H, d.D) + zOff + bulge*Math.sqrt(Math.max(0, 1 - r*r)));
+    p.setXYZ(i, x, y, surfaceZ(x, y) + zOff + bulge*Math.sqrt(Math.max(0, 1 - r*r)));
   }
   p.needsUpdate = true;
   g.computeVertexNormals();
@@ -479,13 +510,13 @@ function capOnHead(cx, cy, hx, hy, zOff, bulge, d, seg){
 
 function placeFeatures(){
   const W = BASE.W*sf(P.faceWidth), H = BASE.H*sf(P.faceHeight), D = BASE.D*sf(P.faceDepth);
-  const S = (x,y)=>surfZ(x,y,W,H,D);
+  const S = (x,y)=>surfaceZ(x,y);
 
   /* ---- eyes ---- */
   const eW=sf(P.eyeWidth), eH=sf(P.eyeHeight), eD=sf(P.eyeDepth), eS=sf(P.eyeSep), eT=sf(P.eyeTilt);
   const eyeX = 0.345*W*eS;
   const eyeY = 0.020*H + (eH-1)*0.035;
-  const eyeZ = S(eyeX,eyeY) - 0.052 + (eD-1)*0.055;
+  const eyeZ = S(eyeX,eyeY) - 0.046 + (eD-1)*0.055;
   const tilt = (eT-1)*0.55;
   const yaw  = 0.22;
   F.eyeL.position.set(-eyeX, eyeY, eyeZ);
@@ -498,20 +529,19 @@ function placeFeatures(){
   /* ---- brows ---- */
   const bW = sf(P.browWidth), bH = sf(P.browHeight), bD = sf(P.browDepth);
   const browX = eyeX*0.99, browY = eyeY + 0.132*H + (bH-1)*0.05;
-  const bg = { W, H, D };
   const bhx = 0.118*bW, bhy = 0.023, bulge = 0.024 + (bD-1)*0.05;
   F.browL.geometry.dispose();
-  F.browL.geometry = capOnHead(-browX, browY, bhx, bhy, -0.002, bulge, bg);
+  F.browL.geometry = capOnHead(-browX, browY, bhx, bhy, -0.004, bulge);
   F.browR.geometry.dispose();
-  F.browR.geometry = capOnHead( browX, browY, bhx, bhy, -0.002, bulge, bg);
+  F.browR.geometry = capOnHead( browX, browY, bhx, bhy, -0.004, bulge);
 
   /* ---- nose ---- */
   const nW=sf(P.noseWidth), nL=sf(P.noseLength), nH=sf(P.noseHeight), nT=sf(P.noseTip);
   const nShift  = (nH-1)*0.11;
   const bridgeY = 0.035*H + nShift;
   const tipY    = -0.29*H + nShift + (nL-1)*0.035 - (nT-1)*0.045;
-  const bz = S(0,bridgeY) - 0.035;
-  const tz = S(0,tipY)    + (nL-1)*0.040 - 0.015;
+  const bz = S(0,bridgeY) - 0.034;
+  const tz = S(0,tipY)    + (nL-1)*0.040 + 0.004;
   F.noseBridge.position.set(0, bridgeY, bz);
   F.noseBridge.scale.set(0.078*nW, 0.205, 0.060*nL);
   F.noseBridge.rotation.x = -0.13 - (nL-1)*0.16;
@@ -528,19 +558,20 @@ function placeFeatures(){
   const mouthY = -0.655*H + (mH-1)*0.075;
   const yUp = mouthY+0.032 + (lS-1)*0.006;
   const yLo = mouthY-0.040 - (lS-1)*0.010;
-  F.lipUp.position.set(0, yUp, S(0,yUp) - 0.010);
+  F.lipUp.position.set(0, yUp, S(0,yUp) - 0.012);
   F.lipUp.scale.set(0.118*mW, 0.028*lS, 0.040);
-  F.lipLo.position.set(0, yLo, S(0,yLo) - 0.014);
+  F.lipLo.position.set(0, yLo, S(0,yLo) - 0.016);
   F.lipLo.scale.set(0.108*mW, 0.034*lS, 0.045);
-  F.mouthGap.position.set(0, mouthY, S(0,mouthY) - 0.030);
+  F.mouthGap.position.set(0, mouthY, S(0,mouthY) - 0.026);
   F.mouthGap.scale.set(0.106*mW, 0.026*mH, 0.032);
 
   /* ---- ears ---- */
   const erS=sf(P.earSize), erH=sf(P.earHeight), erT=sf(P.earTilt);
   const earY = -0.115*H + (erH-1)*0.13;
   const earX = W*1.020;
-  F.earL.position.set(-earX, earY, -0.06);
-  F.earR.position.set( earX, earY, -0.06);
+  const earZ = -0.055*sf(P.faceDepth);
+  F.earL.position.set(-earX, earY, earZ);
+  F.earR.position.set( earX, earY, earZ);
   F.earL.scale.set(1, erS, erS);
   F.earR.scale.set(1, erS, erS);
   const et = (erT-1)*0.5;
@@ -554,7 +585,7 @@ function placeFeatures(){
 
 /* ---------------- colours ---------------- */
 function applyColors(){
-  const r = RACES[P.race] || RACES[0];
+  const r = LINEAGES[P.race] || LINEAGES[0];
   const base  = new THREE.Color(r.skin);
   const dark  = base.clone().multiplyScalar(0.40);
   const light = base.clone().lerp(new THREE.Color(0xffffff), 0.45);
@@ -576,7 +607,7 @@ function apply(){
 /* ============================================================
    UI
    ============================================================ */
-const TABS = ['Race','Face','Nose','Mouth','Eyes','Ears','Hair'];
+const TABS = ['Lineage','Face','Nose','Mouth','Eyes','Ears','Hair'];
 const tabsEl = document.getElementById('tabs');
 const controlsEl = document.getElementById('controls');
 let activeTab = 0;
@@ -660,11 +691,11 @@ function renderTab(){
   controlsEl.scrollTop = 0;
   const name = TABS[activeTab];
 
-  if(name === 'Race'){
-    controlsEl.appendChild(section('Race'));
-    controlsEl.appendChild(buttonGrid(RACES,
+  if(name === 'Lineage'){
+    controlsEl.appendChild(section('Lineage'));
+    controlsEl.appendChild(buttonGrid(LINEAGES,
       (r,i)=> i === P.race,
-      (r,i)=>{ P.race = i; applyRaceShape(); apply(); }));
+      (r,i)=>{ P.race = i; applyLineageShape(); apply(); }));
     controlsEl.appendChild(section('Gender'));
     controlsEl.appendChild(buttonGrid(['Masculine','Feminine'],
       (it,i)=> i === P.gender,
@@ -693,12 +724,12 @@ function renderTab(){
 }
 
 /* race / gender presets */
-function applyRaceShape(){
-  const s = RACES[P.race].shape || {};
+function applyLineageShape(){
+  const s = LINEAGES[P.race].shape || {};
   for(const k in DEFAULTS){ if(k === 'skinTone') continue; P[k] = DEFAULTS[k]; }
   for(const k in s){ if(k in P) P[k] = s[k]; }
-  if(RACES[P.race].hair) P.hairColor = RACES[P.race].hair;
-  if(RACES[P.race].eye)  P.eyeColor  = RACES[P.race].eye;
+  if(LINEAGES[P.race].hair) P.hairColor = LINEAGES[P.race].hair;
+  if(LINEAGES[P.race].eye)  P.eyeColor  = LINEAGES[P.race].eye;
 }
 function applyGenderShape(){
   if(P.gender === 1){
